@@ -1,9 +1,12 @@
-
-
 name: Make Organization Repositories Public
 
 on:
   workflow_dispatch:
+    inputs:  # Define an input parameter
+      page:
+        description: 'Page number to start from'
+        required: false
+        default: '1' # Default to page 1
 
 jobs:
   make_public:
@@ -25,59 +28,55 @@ jobs:
         statuses: write
 
     steps:
-      - name: Process Repositories and Make Public
+      - name: Process Private Repositories and Make Public
         id: process_repos
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const org = context.repo.owner;
-            const repoType = 'all';
-            let page = 1;
+            const repoType = 'private';
+            let page = parseInt(context.payload.inputs.page); // Get page from input
             let processedCount = 0;
             let moreToProcess = false;
-            console.log(`${org}`);
 
             try {
-              while (1) {
+              while (processedCount < 100) {
                 const response = await github.rest.repos.listForOrg({
                   org,
                   type: repoType,
                   page,
                   per_page: 100,
-                  sort: "updated"
                 });
 
                 if (response.data.length === 0) break;
 
                 for (const repo of response.data) {
                   if (processedCount < 100) {
-                    if (repo.private) {
-                      console.log(`Making ${org}/${repo.name} public...`);
-                      await github.rest.repos.update({
-                        owner: org,
-                        repo: repo.name,
-                        private: false,
-                      });
-                      console.log(`${org}/${repo.name} is now public.`);
-                    } else {
-                      console.log(`${org}/${repo.name} is already public. Skipping...`);
-                    }
+                    console.log(`Making ${org}/${repo.name} public...`);
+                    await github.rest.repos.update({
+                      owner: org,
+                      repo: repo.name,
+                      private: false,
+                    });
+                    console.log(`${org}/${repo.name} is now public.`);
                     processedCount++;
                   } else {
-                    moreToProcess = true; // Set the flag
+                    moreToProcess = true;
                     break;
                   }
                 }
                 if (response.data.length < 100) break;
-                page++;
+                page++; // Increment page for the NEXT run
               }
-                core.setOutput('more_to_process', moreToProcess);
-                console.log(`Processed ${processedCount} repositories.`);
+              core.setOutput('more_to_process', moreToProcess);
+              core.setOutput('next_page', page); // Output the next page number
+              console.log(`Processed ${processedCount} private repositories.`);
 
             } catch (error) {
               console.error("Error processing repositories:", error);
-              core.setOutput('more_to_process', false); // Set to false on error
+              core.setOutput('more_to_process', false);
+              core.setOutput('next_page', 1); // Reset to 1 on error
             }
 
       - name: Dispatch Next Workflow (if needed)
@@ -86,9 +85,13 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            console.log("Dispatching next workflow run...");
+            const nextPage = ${{ steps.process_repos.outputs.next_page }}; // Get next page
+            console.log(`Dispatching next workflow run starting from page ${nextPage}...`);
             await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              workflow_id: "convert_to_public_repos", // Use the WORKFLOW ID HERE
+              workflow_id: ${{ github.workflow }}, // Use github.workflow for workflow ID
+              inputs: {
+                page: nextPage.toString(), // Pass the next page as input
+              },
             });
