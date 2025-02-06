@@ -44,20 +44,20 @@ jobs:
               if (response.data.length < 100) break;
               page++;
             }
-            return JSON.stringify(repos); // Crucial: Stringify the array
+            return JSON.stringify(repos);
 
       - name: Make Repositories Public
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const reposJson = ${{ steps.get_repos.outputs.return }};
-            const repos = JSON.parse(reposJson); // Parse the JSON string
+            const reposJson = '${{ steps.get_repos.outputs.return }}'; // Use single quotes!
+            const repos = JSON.parse(reposJson);
             const org = context.repo.owner;
 
             for (const repo of repos) {
               try {
-                if (repo.private) {
+                 if (repo.private) {
                   console.log(`Making ${org}/${repo.name} public...`);
                   await github.rest.repos.update({
                     owner: org,
