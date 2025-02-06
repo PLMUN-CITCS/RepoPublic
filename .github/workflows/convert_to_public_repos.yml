@@ -30,7 +30,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const org = context.repo.owner;
-            const repoType = 'private';
+            const repoType = 'all';
             let repos = [];
             let page = 1;
             let processedCount = 0;
