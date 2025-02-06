@@ -78,7 +78,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const reposJson = ${{ steps.get_repos.outputs.repos }};
+            const reposJson = process.env.REPOS_JSON; // Get from environment variable
             const repos = JSON.parse(reposJson);
             const org = context.repo.owner;
 
@@ -99,6 +99,8 @@ jobs:
                 console.error(`Error making ${org}/${repo.name} public: ${error}`);
               }
             }
+        env:  # Set the environment variable
+          REPOS_JSON: ${{ steps.get_repos.outputs.repos }}
 
       - name: Dispatch Next Workflow (if needed)
         if: steps.get_repos.outputs.processed_count == 100
