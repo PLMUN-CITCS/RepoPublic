@@ -36,6 +36,7 @@ jobs:
             let page = 1;
             let processedCount = 0;
             let moreToProcess = false;
+            console.log(`${org}`);
 
             try {
               while (processedCount < 100) {
