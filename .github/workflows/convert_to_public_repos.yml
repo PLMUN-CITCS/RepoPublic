@@ -1,3 +1,5 @@
+
+
 name: Make Organization Repositories Public
 
 on:
@@ -23,87 +25,61 @@ jobs:
         statuses: write
 
     steps:
-      - name: Get Organization Repositories
-        id: get_repos
+      - name: Process Repositories and Make Public
+        id: process_repos
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const org = context.repo.owner;
             const repoType = 'all';
-            let repos = [];
             let page = 1;
             let processedCount = 0;
+            let moreToProcess = false;
 
             try {
-              while (processedCount < 100) {  // Process a maximum of 100 repos in this run
+              while (processedCount < 100) {
                 const response = await github.rest.repos.listForOrg({
                   org,
                   type: repoType,
                   page,
-                  per_page: 100, // Fetch 100 at a time for efficiency
+                  per_page: 100,
                 });
 
-                if (response.data.length === 0) break; // No more repos
+                if (response.data.length === 0) break;
 
                 for (const repo of response.data) {
                   if (processedCount < 100) {
-                    repos.push(repo);
+                    if (repo.private) {
+                      console.log(`Making ${org}/${repo.name} public...`);
+                      await github.rest.repos.update({
+                        owner: org,
+                        repo: repo.name,
+                        private: false,
+                      });
+                      console.log(`${org}/${repo.name} is now public.`);
+                    } else {
+                      console.log(`${org}/${repo.name} is already public. Skipping...`);
+                    }
                     processedCount++;
                   } else {
-                    break; // Reached the limit for this run
+                    moreToProcess = true; // Set the flag
+                    break;
                   }
                 }
-                if (response.data.length < 100) break; // Less than 100 on the page means no more
+                if (response.data.length < 100) break;
                 page++;
               }
-
-              if (repos.length > 0) {
-                const reposJson = JSON.stringify(repos);
-                core.setOutput('repos', reposJson);
-              } else {
-                core.setOutput('repos', '[]');
-              }
-              core.setOutput('processed_count', processedCount); // Output the number processed
+                core.setOutput('more_to_process', moreToProcess);
+                console.log(`Processed ${processedCount} repositories.`);
 
             } catch (error) {
-              console.error("Error fetching repositories:", error);
-              core.setOutput('repos', '[]');
-              core.setOutput('processed_count', 0);
+              console.error("Error processing repositories:", error);
+              core.setOutput('more_to_process', false); // Set to false on error
             }
-
-      - name: Make Repositories Public
-        if: steps.get_repos.outputs.repos != '[]'
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const reposJson = process.env.REPOS_JSON; // Get from environment variable
-            const repos = JSON.parse(reposJson);
-            const org = context.repo.owner;
-
-            for (const repo of repos) {
-              try {
-                if (repo.private) {
-                  console.log(`Making ${org}/${repo.name} public...`);
-                  await github.rest.repos.update({
-                    owner: org,
-                    repo: repo.name,
-                    private: false,
-                  });
-                  console.log(`${org}/${repo.name} is now public.`);
-                } else {
-                  console.log(`${org}/${repo.name} is already public. Skipping...`);
-                }
-              } catch (error) {
-                console.error(`Error making ${org}/${repo.name} public: ${error}`);
-              }
-            }
-        env:  # Set the environment variable
-          REPOS_JSON: ${{ steps.get_repos.outputs.repos }}
 
       - name: Dispatch Next Workflow (if needed)
-        if: steps.get_repos.outputs.processed_count == 100
+        if: steps.process_repos.outputs.more_to_process == 'true'
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -112,5 +88,5 @@ jobs:
             await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              workflow_id: context.workflow, // Dispatch the same workflow
+              workflow_id: context.workflow,
             });
