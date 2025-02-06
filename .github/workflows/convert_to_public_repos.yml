@@ -90,5 +90,5 @@ jobs:
             await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              workflow_id: context.workflow,
+              workflow_id: <YOUR_WORKFLOW_ID>, // Use the WORKFLOW ID HERE
             });
