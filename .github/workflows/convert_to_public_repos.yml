@@ -90,5 +90,5 @@ jobs:
             await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              workflow_id: <YOUR_WORKFLOW_ID>, // Use the WORKFLOW ID HERE
+              workflow_id: "convert_to_public_repos", // Use the WORKFLOW ID HERE
             });
