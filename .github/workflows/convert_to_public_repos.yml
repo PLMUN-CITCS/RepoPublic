@@ -1,5 +1,4 @@
 name: Make Organization Repositories Public
-
 on:
   workflow_dispatch:
 
@@ -33,42 +32,63 @@ jobs:
             const repoType = 'all'; // Or 'private' for testing
             let repos = [];
             let page = 1;
-            while (true) {
-              const response = await github.rest.repos.listForOrg({
-                org,
-                type: repoType,
-                page,
-                per_page: 100,
-              });
-              repos = repos.concat(response.data);
-              if (response.data.length < 100) break;
-              page++;
+            try {
+              while (true) {
+                const response = await github.rest.repos.listForOrg({
+                  org,
+                  type: repoType,
+                  page,
+                  per_page: 100,
+                });
+                repos = repos.concat(response.data);
+                if (response.data.length < 100) break;
+                page++;
+              }
+              if (repos.length === 0) {
+                console.log("No repositories found or no private repositories to make public.");
+                return '[]'; // Return empty JSON array if no repos found
+              }
+              return JSON.stringify(repos); // Stringify the array
+            } catch (error) {
+              console.error("Error fetching repositories:", error);
+              return '[]'; // Return empty JSON array on error
             }
-            return JSON.stringify(repos);
+
 
       - name: Make Repositories Public
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const reposJson = '${{ steps.get_repos.outputs.return }}'; // Use single quotes!
-            const repos = JSON.parse(reposJson);
-            const org = context.repo.owner;
+            const reposJson = '${{ steps.get_repos.outputs.return }}';
+            try {
+              const repos = JSON.parse(reposJson);
 
-            for (const repo of repos) {
-              try {
-                 if (repo.private) {
-                  console.log(`Making ${org}/${repo.name} public...`);
-                  await github.rest.repos.update({
-                    owner: org,
-                    repo: repo.name,
-                    private: false,
-                  });
-                  console.log(`${org}/${repo.name} is now public.`);
-                } else {
-                  console.log(`${org}/${repo.name} is already public. Skipping...`);
-                }
-              } catch (error) {
-                console.error(`Error making ${org}/${repo.name} public: ${error}`);
+              if (!Array.isArray(repos) || repos.length === 0) {
+                console.log("No repositories to process.");
+                return; // Exit early if no repos
               }
+
+              const org = context.repo.owner;
+
+              for (const repo of repos) {
+                try {
+                  if (repo.private) {
+                    console.log(`Making ${org}/${repo.name} public...`);
+                    await github.rest.repos.update({
+                      owner: org,
+                      repo: repo.name,
+                      private: false,
+                    });
+                    console.log(`${org}/${repo.name} is now public.`);
+                  } else {
+                    console.log(`${org}/${repo.name} is already public. Skipping...`);
+                  }
+                } catch (error) {
+                  console.error(`Error making ${org}/${repo.name} public: ${error}`);
+                }
+              }
+            } catch (parseError) {
+              console.error("Error parsing JSON:", parseError);
+              console.error("Received JSON string:", reposJson); // Log the actual string for debugging
             }
