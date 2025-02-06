@@ -15,7 +15,7 @@ jobs:
         id: get_repos
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.PLMUN_CITCS }}
           script: |
             const org = context.repo.owner; // Organization name
             const repoType = 'all'; // or 'private', 'public' as needed initially for testing
