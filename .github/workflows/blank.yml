@@ -1,0 +1,63 @@
+name: Make Organization Repositories Public
+
+on:
+  workflow_dispatch: # Manually trigger the workflow
+
+jobs:
+  make_public:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      repo: admin # Required to change repository visibility
+
+    steps:
+      - name: Get Organization Repositories
+        id: get_repos
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const org = context.repo.owner; // Organization name
+            const repoType = 'all'; // or 'private', 'public' as needed initially for testing
+            let repos = [];
+            let page = 1;
+            while (true) {
+                const response = await github.rest.repos.listForOrg({
+                    org,
+                    type: repoType,
+                    page,
+                    per_page: 100, // Max per page
+                });
+
+                repos = repos.concat(response.data);
+                if (response.data.length < 100) break; // No more pages
+                page++;
+            }
+            return repos;
+
+      - name: Make Repositories Public
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const repos = ${{ steps.get_repos.outputs.return }};
+            const org = context.repo.owner;
+
+            for (const repo of repos) {
+              try {
+                if (repo.private) { // Only change private repos
+                  console.log(`Making ${org}/${repo.name} public...`);
+                  await github.rest.repos.update({
+                    owner: org,
+                    repo: repo.name,
+                    private: false,
+                  });
+                  console.log(`${org}/${repo.name} is now public.`);
+                } else {
+                   console.log(`${org}/${repo.name} is already public. Skipping...`);
+                }
+              } catch (error) {
+                console.error(`Error making ${org}/${repo.name} public: ${error}`);
+                // Consider adding retry logic or other error handling here
+              }
+            }
