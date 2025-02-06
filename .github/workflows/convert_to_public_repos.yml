@@ -1,7 +1,7 @@
 name: Make Organization Repositories Public
 
 on:
-  workflow_dispatch: # Manually trigger the workflow
+  workflow_dispatch:
 
 jobs:
   make_public:
@@ -29,35 +29,35 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const org = context.repo.owner; // Organization name
-            const repoType = 'all'; // or 'private', 'public' as needed initially for testing
+            const org = context.repo.owner;
+            const repoType = 'all'; // Or 'private' for testing
             let repos = [];
             let page = 1;
             while (true) {
-                const response = await github.rest.repos.listForOrg({
-                    org,
-                    type: repoType,
-                    page,
-                    per_page: 100, // Max per page
-                });
-
-                repos = repos.concat(response.data);
-                if (response.data.length < 100) break; // No more pages
-                page++;
+              const response = await github.rest.repos.listForOrg({
+                org,
+                type: repoType,
+                page,
+                per_page: 100,
+              });
+              repos = repos.concat(response.data);
+              if (response.data.length < 100) break;
+              page++;
             }
-            return repos;
+            return JSON.stringify(repos); // Crucial: Stringify the array
 
       - name: Make Repositories Public
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const repos = ${{ steps.get_repos.outputs.return }};
+            const reposJson = ${{ steps.get_repos.outputs.return }};
+            const repos = JSON.parse(reposJson); // Parse the JSON string
             const org = context.repo.owner;
 
             for (const repo of repos) {
               try {
-                if (repo.private) { // Only change private repos
+                if (repo.private) {
                   console.log(`Making ${org}/${repo.name} public...`);
                   await github.rest.repos.update({
                     owner: org,
@@ -66,10 +66,9 @@ jobs:
                   });
                   console.log(`${org}/${repo.name} is now public.`);
                 } else {
-                   console.log(`${org}/${repo.name} is already public. Skipping...`);
+                  console.log(`${org}/${repo.name} is already public. Skipping...`);
                 }
               } catch (error) {
                 console.error(`Error making ${org}/${repo.name} public: ${error}`);
-                // Consider adding retry logic or other error handling here
               }
             }
