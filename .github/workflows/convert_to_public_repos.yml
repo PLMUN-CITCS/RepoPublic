@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      repo: admin # Required to change repository visibility
+      repo: write # Required to change repository visibility
 
     steps:
       - name: Get Organization Repositories
