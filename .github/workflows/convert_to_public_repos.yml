@@ -46,27 +46,28 @@ jobs:
               }
               if (repos.length === 0) {
                 console.log("No repositories found or no private repositories to make public.");
-                return '[]'; // Return empty JSON array if no repos found
+                core.setOutput('repos', '[]'); // Set output even if empty
+                return;
               }
-              return JSON.stringify(repos); // Stringify the array
+              const reposJson = JSON.stringify(repos);
+              core.setOutput('repos', reposJson); // Use core.setOutput
             } catch (error) {
               console.error("Error fetching repositories:", error);
-              return '[]'; // Return empty JSON array on error
+              core.setOutput('repos', '[]'); // Set output to empty array on error
             }
-
 
       - name: Make Repositories Public
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const reposJson = '${{ steps.get_repos.outputs.return }}';
+            const reposJson = ${{ steps.get_repos.outputs.repos }}; // Access via outputs.repos
             try {
               const repos = JSON.parse(reposJson);
 
               if (!Array.isArray(repos) || repos.length === 0) {
                 console.log("No repositories to process.");
-                return; // Exit early if no repos
+                return;
               }
 
               const org = context.repo.owner;
@@ -90,5 +91,5 @@ jobs:
               }
             } catch (parseError) {
               console.error("Error parsing JSON:", parseError);
-              console.error("Received JSON string:", reposJson); // Log the actual string for debugging
+              console.error("Received JSON string:", reposJson);
             }
