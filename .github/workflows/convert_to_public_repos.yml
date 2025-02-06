@@ -27,7 +27,7 @@ jobs:
         id: get_repos
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.PLMUN_CITCS }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const org = context.repo.owner; // Organization name
             const repoType = 'all'; // or 'private', 'public' as needed initially for testing
@@ -50,7 +50,7 @@ jobs:
       - name: Make Repositories Public
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.PLMUN_CITCS }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const repos = ${{ steps.get_repos.outputs.return }};
             const org = context.repo.owner;
